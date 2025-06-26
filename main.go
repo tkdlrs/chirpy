@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	const filepathRoot = "."
+	const filepathRoot = "/app"
 	const port = "8080"
 	//
 	mux := http.NewServeMux()
