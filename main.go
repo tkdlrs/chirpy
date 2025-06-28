@@ -11,22 +11,19 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 }
 
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	cfg.fileserverHits.Add(1)
-	return next
-}
-
 func main() {
 	const filepathRoot = "."
 	const port = "8080"
 	//
-	mux := http.NewServeMux()
-	apiCfg := apiConfig{fileserverHits: atomic.Int32{}}
+	apiCfg := apiConfig{
+		fileserverHits: atomic.Int32{},
+	}
 	//
-	mux.Handle("/app/", http.StripPrefix("/app", apiCfg.middlewareMetricsInc(http.FileServer(http.Dir(filepathRoot)))))
+	mux := http.NewServeMux()
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 	mux.HandleFunc("/healthz", handlerReadiness)
-	mux.HandleFunc("/metrics", apiCfg.handlerServerHits)
-	// mux.HandleFunc("reset", apiCfg. )
+	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("/reset", apiCfg.handlerReset)
 	//
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -37,29 +34,15 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func handlerReadiness(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
+	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())))
 }
 
-func (cfg *apiConfig) handlerServerHits(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	// io.WriteString(w, "Hits: ")
-	fmt.Fprintf(w, "Hits: %v", cfg.fileserverHits.Load())
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.fileserverHits.Add(1)
+		next.ServeHTTP(w, r)
+	})
 }
-
-// func (cfg *apiConfig) getServerHits() int32 {
-// 	return int32(cfg.fileserverHits.Load())
-// }
-
-// func handlerResetServerHits(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-// 	w.WriteHeader(http.StatusOK)
-// 	// resetSeverHit()
-// 	fmt.Fprintf(w, "Server counts reset")
-// }
-
-// func resetSeverHits(cfg apiConfig) {
-// }
