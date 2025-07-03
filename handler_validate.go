@@ -27,21 +27,27 @@ func handleChirpValidate(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
 		return
 	}
-	BodyToScrub := params.Body
-	splitBody := strings.Split(BodyToScrub, " ")
-	scrubbedSlice := make([]string, len(splitBody))
-	for i, v := range splitBody {
-		lowerCaseV := strings.ToLower(v)
-		if lowerCaseV == "kerfuffle" || lowerCaseV == "sharbert" || lowerCaseV == "fornax" {
-			scrubbedSlice[i] = "****"
-		} else {
-			scrubbedSlice[i] = v
-		}
+	//
+	badWords := map[string]struct{}{
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
 	}
-	scrubbedBody := strings.Join(scrubbedSlice, " ")
-
+	cleaned := getCleanedBody(params.Body, badWords)
 	//
 	respondWithJSON(w, http.StatusOK, returnVals{
-		CleanedBody: scrubbedBody,
+		CleanedBody: cleaned,
 	})
+}
+
+func getCleanedBody(body string, badWords map[string]struct{}) string {
+	words := strings.Split(body, " ")
+	for i, word := range words {
+		loweredWord := strings.ToLower(word)
+		if _, ok := badWords[loweredWord]; ok {
+			words[i] = "****"
+		}
+	}
+	cleaned := strings.Join(words, " ")
+	return cleaned
 }
