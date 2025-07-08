@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -14,48 +15,39 @@ type Chirp struct {
 	ID        uuid.UUID `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Body      string    `json:"body"`
 	UserID    uuid.UUID `json:"user_id"`
+	Body      string    `json:"body"`
 }
 
-func (cfg *apiConfig) handleChirpValidateAndCreate(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
 	}
-	type response struct {
-		Chirp
-	}
-	//
+	// Get data out of the Request
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		respondWithError(w, http.StatusInternalServerError, "Could not decode parameters", err)
 		return
 	}
-	//
-	const maxChirpLength = 140
-	if len(params.Body) > maxChirpLength {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
+	// sanitize and validate the chirp
+	cleaned, err := validateChirp(params.Body)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	//
-	badWords := map[string]struct{}{
-		"kerfuffle": {},
-		"sharbert":  {},
-		"fornax":    {},
-	}
-	cleaned := getCleanedBody(params.Body, badWords)
-	// format 'cleaned' chirp
+	// format 'cleaned' chirp into needed paramaters for database insertion
 	newChirp := database.CreateChirpParams{
 		Body:   cleaned,
 		UserID: params.UserID,
 	}
-	// Create a chirp
+	// Create a chirp with parameters
 	chirp, err := cfg.db.CreateChirp(r.Context(), newChirp)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Could not create a chirp", err)
+		respondWithError(w, http.StatusInternalServerError, "Could not create chirp", err)
+		return
 	}
 	//
 	currentChirp := Chirp{
@@ -66,7 +58,23 @@ func (cfg *apiConfig) handleChirpValidateAndCreate(w http.ResponseWriter, r *htt
 		UserID:    chirp.UserID,
 	}
 	// Happy path, respond with the newly created chirp
-	respondWithJSON(w, http.StatusCreated, response{Chirp: currentChirp})
+	respondWithJSON(w, http.StatusCreated, currentChirp)
+}
+
+// Better to keep this logic seperate as its own little unit.
+func validateChirp(body string) (string, error) {
+	const maxChirpLength = 140
+	if len(body) > maxChirpLength {
+		return "", errors.New("Chirp is too long")
+	}
+	//
+	badWords := map[string]struct{}{
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
+	}
+	cleaned := getCleanedBody(body, badWords)
+	return cleaned, nil
 }
 
 func getCleanedBody(body string, badWords map[string]struct{}) string {
