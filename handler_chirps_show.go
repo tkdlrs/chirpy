@@ -8,17 +8,16 @@ import (
 
 func (cfg *apiConfig) handlerShowChirp(w http.ResponseWriter, r *http.Request) {
 	//
-	chirpID := r.PathValue("chirpID")
-	if chirpID == "" {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Chirp not found"))
+	chirpIDString := r.PathValue("chirpID")
+	chirpID, err := uuid.Parse(chirpIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID", err)
 		return
 	}
-	getChirpParams := uuid.MustParse(chirpID)
 	//
-	dbChirp, err := cfg.db.GetChirp(r.Context(), getChirpParams)
+	dbChirp, err := cfg.db.GetChirp(r.Context(), chirpID)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Could not get chirp", err)
+		respondWithError(w, http.StatusNotFound, "Could not get chirp", err)
 		return
 	}
 	// Happy path
