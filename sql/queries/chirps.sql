@@ -5,5 +5,5 @@ RETURNING *;
 
 
 -- name: GetChirps :many
-SELECT * from chirps
+SELECT * FROM chirps
 ORDER BY created_at ASC;
