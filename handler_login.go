@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/tkdlrs/chirpy/internal/auth"
@@ -10,8 +9,11 @@ import (
 
 func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email    string `json:"email"`
 		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	type response struct {
+		User
 	}
 	// get parameters from request
 	decoder := json.NewDecoder(r.Body)
@@ -27,12 +29,6 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
-
-	// compare alleged user hashed password with hashed password on file
-	fmt.Println("------- provided password ")
-	fmt.Println(params.Password)
-	fmt.Println("------- recorded password ")
-	fmt.Println(allegedUser.HashedPassword)
 	//
 	err = auth.CheckPasswordHash(params.Password, allegedUser.HashedPassword)
 	if err != nil {
@@ -42,9 +38,9 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 	// happy path
 	user := User{
 		ID:        allegedUser.ID,
+		Email:     allegedUser.Email,
 		CreatedAt: allegedUser.CreatedAt,
 		UpdatedAt: allegedUser.UpdatedAt,
-		Email:     allegedUser.Email,
 	}
-	respondWithJSON(w, http.StatusOK, user)
+	respondWithJSON(w, http.StatusOK, response{User: user})
 }

@@ -15,13 +15,14 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Password  string    `json:"-"`
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	// Set up stuff to get info out of request
 	type parameters struct {
+		Password string `json:"password"`
 		Email    string `json:"email"`
-		Password string `json:"-"`
 	}
 	type response struct {
 		User
@@ -35,14 +36,14 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	//
-	hashPw, err := auth.HashPassword(params.Password)
+	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not hash password", err)
 		return
 	}
 	newUserParams := database.CreateUserParams{
 		Email:          params.Email,
-		HashedPassword: hashPw,
+		HashedPassword: hashedPassword,
 	}
 	// Use the info from above to CREATE a user in the database
 	user, err := cfg.db.CreateUser(r.Context(), newUserParams)
