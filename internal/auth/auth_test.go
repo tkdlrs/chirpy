@@ -1,6 +1,8 @@
 package auth
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestCheckPasswordHash(t *testing.T) {
 	//
@@ -55,4 +57,13 @@ func TestCheckPasswordHash(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Messing with testing (since no one want to take the time to explain it to me...)
+func TestCheckTrueIsTrue(t *testing.T) {
+	t.Run("Sanity Check", func(t *testing.T) {
+		if 2+2 != 4 {
+			t.Error("two plus two should be equal to four")
+		}
+	})
 }
