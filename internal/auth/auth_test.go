@@ -2,6 +2,9 @@ package auth
 
 import (
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestCheckPasswordHash(t *testing.T) {
@@ -66,4 +69,56 @@ func TestCheckTrueIsTrue(t *testing.T) {
 			t.Error("two plus two should be equal to four")
 		}
 	})
+}
+
+// testing the JWT stuff
+func TestCheckJWT(t *testing.T) {
+	//
+	userID := uuid.MustParse("cefe4238-72ea-4aa5-b154-d7048777e572")
+	tests := []struct {
+		name              string
+		userid            uuid.UUID
+		secret            string
+		time              time.Duration
+		wantErrMaking     bool
+		wantErrValidating bool
+	}{
+		{
+			name:              "JWT check -happy path",
+			userid:            userID,
+			secret:            "secret",
+			time:              1 * time.Hour,
+			wantErrMaking:     false,
+			wantErrValidating: false,
+		},
+		// {
+		// 	name:              "JWT check -expired token",
+		// 	userid:            userID,
+		// 	secret:            "Secret",
+		// 	time:              1 * time.Millisecond,
+		// 	wantErrMaking:     false,
+		// 	wantErrValidating: true,
+		// },
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jwtToken, err := MakeJWT(tt.userid, tt.secret, tt.time)
+			if (err != nil) != tt.wantErrMaking {
+				t.Errorf("MakeJWT() error = %v, wantErrMaking %v", err, tt.wantErrMaking)
+			}
+			//
+			time.Sleep(1 * time.Second)
+			//
+			_, err = ValidateJWT(jwtToken, tt.secret)
+			if (err != nil) != tt.wantErrValidating {
+				t.Errorf("ValidateJWT() error = %v, wantErrValidating %v", err, tt.wantErrValidating)
+			}
+			//
+			// if userUUID != userID {
+			// 	t.Error("The userUUID that we got back from validation does not equal the original userID.")
+			// }
+
+		})
+	}
 }
