@@ -72,53 +72,50 @@ func TestCheckTrueIsTrue(t *testing.T) {
 }
 
 // testing the JWT stuff
-func TestCheckJWT(t *testing.T) {
+func TestValidateJWT(t *testing.T) {
+	userID := uuid.New()
+	validToken, _ := MakeJWT(userID, "secret", time.Hour)
 	//
-	userID := uuid.MustParse("cefe4238-72ea-4aa5-b154-d7048777e572")
 	tests := []struct {
-		name              string
-		userid            uuid.UUID
-		secret            string
-		time              time.Duration
-		wantErrMaking     bool
-		wantErrValidating bool
+		name        string
+		tokenString string
+		tokenSecret string
+		wantUserID  uuid.UUID
+		wantErr     bool
 	}{
 		{
-			name:              "JWT check -happy path",
-			userid:            userID,
-			secret:            "secret",
-			time:              1 * time.Hour,
-			wantErrMaking:     false,
-			wantErrValidating: false,
+			name:        "Valid token",
+			tokenString: validToken,
+			tokenSecret: "secret",
+			wantUserID:  userID,
+			wantErr:     false,
 		},
-		// {
-		// 	name:              "JWT check -expired token",
-		// 	userid:            userID,
-		// 	secret:            "Secret",
-		// 	time:              1 * time.Millisecond,
-		// 	wantErrMaking:     false,
-		// 	wantErrValidating: true,
-		// },
+		{
+			name:        "Invalid token",
+			tokenString: "invalid.token.string",
+			tokenSecret: "secret",
+			wantUserID:  uuid.Nil,
+			wantErr:     true,
+		}, {
+			name:        "Wrong secret",
+			tokenString: validToken,
+			tokenSecret: "wrong_secret",
+			wantUserID:  uuid.Nil,
+			wantErr:     true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jwtToken, err := MakeJWT(tt.userid, tt.secret, tt.time)
-			if (err != nil) != tt.wantErrMaking {
-				t.Errorf("MakeJWT() error = %v, wantErrMaking %v", err, tt.wantErrMaking)
+			gotUserID, err := ValidateJWT(tt.tokenString, tt.tokenSecret)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 			//
-			time.Sleep(1 * time.Second)
-			//
-			_, err = ValidateJWT(jwtToken, tt.secret)
-			if (err != nil) != tt.wantErrValidating {
-				t.Errorf("ValidateJWT() error = %v, wantErrValidating %v", err, tt.wantErrValidating)
+			if gotUserID != tt.wantUserID {
+				t.Errorf("ValidateJWT() gotUserID = %v, want %v", gotUserID, tt.wantUserID)
 			}
-			//
-			// if userUUID != userID {
-			// 	t.Error("The userUUID that we got back from validation does not equal the original userID.")
-			// }
-
 		})
 	}
 }

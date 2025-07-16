@@ -1,12 +1,20 @@
 package auth
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+)
+
+type TokenType string
+
+const (
+	// TokenTypeAccess -
+	TokenTypeAccess TokenType = "chirpy-access"
 )
 
 // HashPassword -
@@ -26,48 +34,55 @@ func CheckPasswordHash(password, hash string) error {
 // MakeJWT -
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	//
-	mySigningKey := []byte("AllYourBase")
+	signingKey := []byte(tokenSecret)
 	// claims
-	currentTime := time.Now()
+	currentTime := time.Now().UTC()
 	claims := jwt.RegisteredClaims{
-		Issuer:    "chirpy",
-		IssuedAt:  jwt.NewNumericDate(currentTime.UTC()),
+		Issuer:    string(TokenTypeAccess),
+		IssuedAt:  jwt.NewNumericDate(currentTime),
 		ExpiresAt: jwt.NewNumericDate(currentTime.Add(expiresIn)),
 		Subject:   userID.String(),
 	}
-
 	// token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	// signing
-	tokenString, err := token.SignedString(mySigningKey)
-	if err != nil {
-		return "", err
-	}
-	// happy path
-	return tokenString, nil
+	return token.SignedString(signingKey)
 }
 
 // ValidateJWT
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	//
-	type MyCustomClaims struct {
-		jwt.RegisteredClaims
-	}
+	claimsStruct := jwt.RegisteredClaims{}
 	// parse token
-	token, err := jwt.ParseWithClaims(tokenString, &MyCustomClaims{}, func(token *jwt.Token) (any, error) {
-		return []byte("AllYourBase"), nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&claimsStruct,
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(tokenSecret), nil
+		},
+	)
 	if err != nil {
-		log.Fatal(err)
+		return uuid.Nil, err
 	}
 	//
-	if claims, ok := token.Claims.(*MyCustomClaims); ok {
-		subject, err := claims.GetSubject()
-		if err != nil {
-			return uuid.UUID{}, err
-		}
-		return uuid.MustParse(subject), nil
+	userIDString, err := token.Claims.GetSubject()
+	if err != nil {
+		return uuid.Nil, err
 	}
 	//
-	return uuid.UUID{}, nil
+	issuer, err := token.Claims.GetIssuer()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	//
+	if issuer != string(TokenTypeAccess) {
+		return uuid.Nil, errors.New("invalid issuer")
+	}
+	//
+	id, err := uuid.Parse(userIDString)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+	//
+	return id, nil
 }
