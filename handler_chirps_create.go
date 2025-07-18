@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tkdlrs/chirpy/internal/auth"
 	"github.com/tkdlrs/chirpy/internal/database"
 )
 
@@ -32,6 +33,20 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "Could not decode parameters", err)
 		return
 	}
+
+	// Verify the user
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unable to get bearer token", err)
+		return
+	}
+	// Validate that the user is the user
+	verifiedUser, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Provided invalid token", err)
+		return
+	}
+
 	// sanitize and validate the chirp
 	cleaned, err := validateChirp(params.Body)
 	if err != nil {
@@ -41,7 +56,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	// format 'cleaned' chirp into needed paramaters for database insertion
 	newChirp := database.CreateChirpParams{
 		Body:   cleaned,
-		UserID: params.UserID,
+		UserID: verifiedUser,
 	}
 	// Create a chirp with parameters
 	chirp, err := cfg.db.CreateChirp(r.Context(), newChirp)
