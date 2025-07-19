@@ -16,6 +16,8 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 	}
 	type response struct {
 		User
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 	// get parameters from request
 	decoder := json.NewDecoder(r.Body)
@@ -38,24 +40,25 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// expiration time should be what they specifed up to an hour. Otherwise it should expire after one hour.
-	expirationTime := time.Duration(params.ExpiresInSeconds)
-	if expirationTime == 0 || time.Duration(expirationTime) > time.Hour {
-		expirationTime = time.Hour
+	expirationTime := time.Hour
+	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < 3600 {
+		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
 	}
-
 	// Generate a JWT for the user
-	token, err := auth.MakeJWT(allegedUser.ID, cfg.secret, expirationTime)
+	accessToken, err := auth.MakeJWT(allegedUser.ID, cfg.jwtSecret, expirationTime)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Issue generating Token", err)
+		respondWithError(w, http.StatusInternalServerError, "Could not generate access JWT", err)
 		return
 	}
 	// happy path
-	user := User{
-		ID:        allegedUser.ID,
-		UpdatedAt: allegedUser.UpdatedAt,
-		CreatedAt: allegedUser.CreatedAt,
-		Email:     allegedUser.Email,
-		Token:     token,
+	userResponse := response{
+		User: User{
+			ID:        allegedUser.ID,
+			CreatedAt: allegedUser.CreatedAt,
+			UpdatedAt: allegedUser.UpdatedAt,
+			Email:     allegedUser.Email,
+		},
+		Token: accessToken,
 	}
-	respondWithJSON(w, http.StatusOK, response{User: user})
+	respondWithJSON(w, http.StatusOK, userResponse)
 }

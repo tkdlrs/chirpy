@@ -22,28 +22,26 @@ type Chirp struct {
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
+	}
+	// Verify the user
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unable to find JWT", err)
+		return
+	}
+	// Validate that the user is the user
+	verifiedUserID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Could not validate JWT", err)
+		return
 	}
 	// Get data out of the Request
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not decode parameters", err)
-		return
-	}
-
-	// Verify the user
-	token, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Unable to get bearer token", err)
-		return
-	}
-	// Validate that the user is the user
-	verifiedUser, err := auth.ValidateJWT(token, cfg.secret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Provided invalid token", err)
 		return
 	}
 
@@ -56,7 +54,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	// format 'cleaned' chirp into needed paramaters for database insertion
 	newChirp := database.CreateChirpParams{
 		Body:   cleaned,
-		UserID: verifiedUser,
+		UserID: verifiedUserID,
 	}
 	// Create a chirp with parameters
 	chirp, err := cfg.db.CreateChirp(r.Context(), newChirp)
