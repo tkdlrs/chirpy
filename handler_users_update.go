@@ -8,28 +8,26 @@ import (
 	"github.com/tkdlrs/chirpy/internal/database"
 )
 
-func (cfg *apiConfig) handlerEditUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		NewPassword string `json:"new_password"`
-		Email       string `json:"email"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
-
 	type response struct {
 		User
 	}
 	// Get the access token
-	jwtAccessToken, err := auth.GetBearerToken(r.Header)
+	jwtToken, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Could not find token", err)
 		return
 	}
-	// get user id from jwt
-	userId, err := auth.ValidateJWT(jwtAccessToken, cfg.jwtSecret)
+	// get user id from JWT
+	userId, err := auth.ValidateJWT(jwtToken, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Could not validate token", err)
 		return
 	}
-
 	// get parameters from request
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
@@ -39,20 +37,20 @@ func (cfg *apiConfig) handlerEditUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Hash the new password
-	hashNewPassword, err := auth.HashPassword(params.NewPassword)
+	hashNewPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not hash new password", err)
 		return
 	}
 	// Update users password and email in the Database
 	updateUserParams := database.UpdateUserParams{
+		ID:             userId,
 		Email:          params.Email,
 		HashedPassword: hashNewPassword,
-		ID:             userId,
 	}
 	user, err := cfg.db.UpdateUser(r.Context(), updateUserParams)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
+		respondWithError(w, http.StatusUnauthorized, "Could not update user", err)
 		return
 	}
 	//
