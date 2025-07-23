@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/tkdlrs/chirpy/internal/auth"
+	"github.com/tkdlrs/chirpy/internal/database"
 )
 
 func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Password         string `json:"password"`
-		Email            string `json:"email"`
-		ExpiresInSeconds int    `json:"expires_in_seconds"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 	type response struct {
 		User
@@ -39,15 +39,26 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
-	// expiration time should be what they specifed up to an hour. Otherwise it should expire after one hour.
-	expirationTime := time.Hour
-	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < 3600 {
-		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
-	}
 	// Generate a JWT for the user
-	accessToken, err := auth.MakeJWT(allegedUser.ID, cfg.jwtSecret, expirationTime)
+	accessToken, err := auth.MakeJWT(allegedUser.ID, cfg.jwtSecret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not generate access JWT", err)
+		return
+	}
+	// Generate a Refresh Token for the User
+	makeRefreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not generate Refresh Token", err)
+		return
+	}
+	// Save Refresh Token in Database
+	saveRefreshTokenParams := database.CreateRefreshTokenParams{
+		UserID: allegedUser.ID,
+		Token:  makeRefreshToken,
+	}
+	refreshToken, err := cfg.db.CreateRefreshToken(r.Context(), saveRefreshTokenParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not save Refresh Token", err)
 		return
 	}
 	// happy path
@@ -58,7 +69,8 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 			UpdatedAt: allegedUser.UpdatedAt,
 			Email:     allegedUser.Email,
 		},
-		Token: accessToken,
+		Token:        accessToken,
+		RefreshToken: refreshToken.Token,
 	}
 	respondWithJSON(w, http.StatusOK, userResponse)
 }

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -160,4 +161,14 @@ func TestGetBearerToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMakeRefreshToken(t *testing.T) {
+	t.Run("Refresh Token Check", func(t *testing.T) {
+		refreshToken, err := MakeRefreshToken()
+		if err != nil {
+			t.Error("not a refresh token")
+		}
+		fmt.Println(refreshToken, "this is a refresh token...")
+	})
 }
