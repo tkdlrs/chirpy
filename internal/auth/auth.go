@@ -107,13 +107,16 @@ func GetBearerToken(headers http.Header) (string, error) {
 	return splitAuth[1], nil
 }
 
-// MakeRefreshToken -
+// MakeRefreshToken - makes a radom 256 bit token and encodes it in hex
 func MakeRefreshToken() (string, error) {
 	// Create
-	randomBytes := make([]byte, 32)
-	rand.Read(randomBytes)
+	token := make([]byte, 32)
+	_, err := rand.Read(token)
+	if err != nil {
+		return "", err
+	}
 	// Encode as a hex string
-	encodedStr := hex.EncodeToString(randomBytes)
+	encodedStr := hex.EncodeToString(token)
 	//
 	return encodedStr, nil
 }

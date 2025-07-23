@@ -40,25 +40,30 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// Generate a JWT for the user
-	accessToken, err := auth.MakeJWT(allegedUser.ID, cfg.jwtSecret, time.Hour)
+	accessToken, err := auth.MakeJWT(
+		allegedUser.ID,
+		cfg.jwtSecret,
+		time.Hour,
+	)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not generate access JWT", err)
 		return
 	}
 	// Generate a Refresh Token for the User
-	makeRefreshToken, err := auth.MakeRefreshToken()
+	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Could not generate Refresh Token", err)
+		respondWithError(w, http.StatusInternalServerError, "Could not generate refresh token", err)
 		return
 	}
 	// Save Refresh Token in Database
 	saveRefreshTokenParams := database.CreateRefreshTokenParams{
-		UserID: allegedUser.ID,
-		Token:  makeRefreshToken,
+		UserID:    allegedUser.ID,
+		Token:     refreshToken,
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
 	}
-	refreshToken, err := cfg.db.CreateRefreshToken(r.Context(), saveRefreshTokenParams)
+	_, err = cfg.db.CreateRefreshToken(r.Context(), saveRefreshTokenParams)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Could not save Refresh Token", err)
+		respondWithError(w, http.StatusInternalServerError, "Could not save refresh token", err)
 		return
 	}
 	// happy path
@@ -70,7 +75,7 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 			Email:     allegedUser.Email,
 		},
 		Token:        accessToken,
-		RefreshToken: refreshToken.Token,
+		RefreshToken: refreshToken,
 	}
 	respondWithJSON(w, http.StatusOK, userResponse)
 }
