@@ -1,20 +1,21 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 )
 
-func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerWebhook(w http.ResponseWriter, r *http.Request) {
 	// Set up stuff to get info out of request
-	type Data struct {
-		UserID string `json:"user_id"`
-	}
 	type parameters struct {
 		Event string `json:"event"`
-		Data  Data   `json:"data"`
+		Data  struct {
+			UserID uuid.UUID `json:"user_id"`
+		}
 	}
 	//
 	decoder := json.NewDecoder(r.Body)
@@ -30,14 +31,12 @@ func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request
 		return
 	}
 	//
-	userID, err := uuid.Parse(params.Data.UserID)
+	_, err = cfg.db.UpgradeToChripyRed(r.Context(), params.Data.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "Could not find user", err)
-		return
-	}
-	//
-	_, err = cfg.db.UpgradeUserToRed(r.Context(), userID)
-	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "Could not find user", err)
+			return
+		}
 		respondWithError(w, http.StatusInternalServerError, "Could not upgrade user to Red", err)
 		return
 	}
