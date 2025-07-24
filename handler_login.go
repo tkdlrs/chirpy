@@ -69,10 +69,11 @@ func (cfg *apiConfig) handlerAuthenticateUser(w http.ResponseWriter, r *http.Req
 	// happy path
 	userResponse := response{
 		User: User{
-			ID:        allegedUser.ID,
-			CreatedAt: allegedUser.CreatedAt,
-			UpdatedAt: allegedUser.UpdatedAt,
-			Email:     allegedUser.Email,
+			ID:          allegedUser.ID,
+			CreatedAt:   allegedUser.CreatedAt,
+			UpdatedAt:   allegedUser.UpdatedAt,
+			Email:       allegedUser.Email,
+			IsChirpyRed: allegedUser.IsChirpyRed,
 		},
 		Token:        accessToken,
 		RefreshToken: refreshToken,
