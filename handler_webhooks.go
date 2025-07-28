@@ -7,9 +7,21 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/tkdlrs/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerWebhook(w http.ResponseWriter, r *http.Request) {
+	// Verify that the headers include the API Key
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unable to find API Key", err)
+		return
+	}
+	//
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect API Key provided", err)
+		return
+	}
 	// Set up stuff to get info out of request
 	type parameters struct {
 		Event string `json:"event"`
@@ -20,7 +32,7 @@ func (cfg *apiConfig) handlerWebhook(w http.ResponseWriter, r *http.Request) {
 	//
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not decode parameters", err)
 		return
