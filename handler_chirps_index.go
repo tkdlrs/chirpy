@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) handlerIndexChirps(w http.ResponseWriter, r *http.Request) {
@@ -12,36 +14,30 @@ func (cfg *apiConfig) handlerIndexChirps(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	//
-	authorFilter := r.URL.Query().Get("author_id")
+	authorID := uuid.Nil
+	authorIDStringFilter := r.URL.Query().Get("author_id")
+	if authorIDStringFilter != "" {
+		authorID, err = uuid.Parse(authorIDStringFilter)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "Invalid author ID", err)
+			return
+		}
+	}
 	//
 	chirps := []Chirp{}
-	//
-	if authorFilter != "" {
-		for _, dbChirp := range dbChirps {
-			// filtering for if filtering by author
-			if authorFilter == dbChirp.UserID.String() {
-				chirps = append(chirps, Chirp{
-					ID:        dbChirp.ID,
-					CreatedAt: dbChirp.CreatedAt,
-					UpdatedAt: dbChirp.UpdatedAt,
-					UserID:    dbChirp.UserID,
-					Body:      dbChirp.Body,
-				})
-			}
+	for _, dbChirp := range dbChirps {
+		// filtering for if filtering by author
+		if authorID != uuid.Nil && dbChirp.UserID != authorID {
+			continue
 		}
-	} else {
-		for _, dbChirp := range dbChirps {
-			// filtering for if filtering by author
-			if authorFilter == dbChirp.UserID.String() {
-				chirps = append(chirps, Chirp{
-					ID:        dbChirp.ID,
-					CreatedAt: dbChirp.CreatedAt,
-					UpdatedAt: dbChirp.UpdatedAt,
-					UserID:    dbChirp.UserID,
-					Body:      dbChirp.Body,
-				})
-			}
-		}
+		//
+		chirps = append(chirps, Chirp{
+			ID:        dbChirp.ID,
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
+			UserID:    dbChirp.UserID,
+			Body:      dbChirp.Body,
+		})
 	}
 	//
 	respondWithJSON(w, http.StatusOK, chirps)
