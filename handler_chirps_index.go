@@ -12,15 +12,36 @@ func (cfg *apiConfig) handlerIndexChirps(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	//
+	authorFilter := r.URL.Query().Get("author_id")
+	//
 	chirps := []Chirp{}
-	for _, dbChirp := range dbChirps {
-		chirps = append(chirps, Chirp{
-			ID:        dbChirp.ID,
-			CreatedAt: dbChirp.CreatedAt,
-			UpdatedAt: dbChirp.UpdatedAt,
-			UserID:    dbChirp.UserID,
-			Body:      dbChirp.Body,
-		})
+	//
+	if authorFilter != "" {
+		for _, dbChirp := range dbChirps {
+			// filtering for if filtering by author
+			if authorFilter == dbChirp.UserID.String() {
+				chirps = append(chirps, Chirp{
+					ID:        dbChirp.ID,
+					CreatedAt: dbChirp.CreatedAt,
+					UpdatedAt: dbChirp.UpdatedAt,
+					UserID:    dbChirp.UserID,
+					Body:      dbChirp.Body,
+				})
+			}
+		}
+	} else {
+		for _, dbChirp := range dbChirps {
+			// filtering for if filtering by author
+			if authorFilter == dbChirp.UserID.String() {
+				chirps = append(chirps, Chirp{
+					ID:        dbChirp.ID,
+					CreatedAt: dbChirp.CreatedAt,
+					UpdatedAt: dbChirp.UpdatedAt,
+					UserID:    dbChirp.UserID,
+					Body:      dbChirp.Body,
+				})
+			}
+		}
 	}
 	//
 	respondWithJSON(w, http.StatusOK, chirps)
